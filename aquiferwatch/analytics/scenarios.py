@@ -50,10 +50,21 @@ WATER_PER_ACRE = {
     "corn": 1.40, "soybeans": 1.00, "sorghum": 0.80,
     "wheat": 0.70, "cotton": 1.10, "alfalfa": 1.80,
 }
-# Gross revenue per irrigated acre — USDA ERS county-level crop budgets, HPA median.
+# Gross revenue per irrigated acre, $/ac-yr.
+# Source: USDA ERS commodity costs & returns, "Gross value of production,
+# Total" — latest national year (currently 2024). Pulled by
+# `pipeline/ers_budgets.py` into `data/processed/ers_revenue_per_acre.parquet`;
+# these hardcoded numbers must stay in sync so that running `run_scenario()`
+# on a baseline built from the parquet produces consistent ag-value deltas.
+# Alfalfa: ERS doesn't publish alfalfa cost+return; value is HPA irrigated
+# median from Kansas State Extension budgets.
 REVENUE_PER_ACRE = {
-    "corn": 1350, "soybeans": 850, "sorghum": 560,
-    "wheat": 420, "cotton": 980, "alfalfa": 1100,
+    "corn": 757,
+    "soybeans": 544,
+    "sorghum": 279,
+    "wheat": 287,
+    "cotton": 686,
+    "alfalfa": 1100,
 }
 
 # Irrigation method efficiency factor (share of water_per_acre actually needed).
