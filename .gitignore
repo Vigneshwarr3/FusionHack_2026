@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+ENV/
+.python-version
+
+# Poetry / build
+dist/
+build/
+*.egg-info/
+.poetry-cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env / secrets (pattern mirrors Agricultural_Data_Analysis)
+.env
+.env.local
+.env.*.local
+secrets.txt
+*.pem
+*.key
+
+# Data — raw pulls stay local, processed parquet goes to S3
+data/raw/
+data/interim/
+*.parquet
+*.pkl
+*.pickle
+*.tar.gz
+
+# Large binary caches
+*.geojson.gz
+*.tif
+*.shp
+*.shx
+*.dbf
+
+# MLflow local backend (use shared tracking URI in team mode — see mlflow/README.md)
+mlruns/
+mlartifacts/
+mlflow.db
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+
+# Misc
+.cache/
+tmpclaude-*
