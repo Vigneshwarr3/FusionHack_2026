@@ -58,6 +58,10 @@ mlruns/
 mlartifacts/
 mlflow.db
 
+# Training-library scratch dirs
+catboost_info/
+lightgbm_info/
+
 # Jupyter
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*

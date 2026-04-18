@@ -203,7 +203,10 @@ def evaluate(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]:
 
 def quantile_coverage(y_true: pd.Series, preds: pd.DataFrame) -> dict[str, float]:
     """Fraction of y_true falling inside [p10, p90]. Target: ~0.80."""
-    inside = ((y_true >= preds["p10"]) & (y_true <= preds["p90"])).mean()
+    yt = np.asarray(y_true)
+    p10 = preds["p10"].to_numpy()
+    p90 = preds["p90"].to_numpy()
+    inside = ((yt >= p10) & (yt <= p90)).mean()
     return {"p10_p90_coverage": float(inside)}
 
 

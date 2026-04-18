@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from aquiferwatch.analytics.baseline import load_baseline
+from aquiferwatch.analytics.scenarios import run_scenario
 from aquiferwatch.schemas import (
     CustomScenarioParams,
     Scenario,
@@ -32,8 +34,14 @@ router = APIRouter(tags=["aquifer"])
 
 @router.get("/counties")
 def list_counties() -> list[dict]:
-    """List counties with current saturated thickness + years-until-uneconomic."""
-    raise HTTPException(status_code=501, detail="Day 2 — Raj owns")
+    """List counties with current saturated thickness + years-until-uneconomic.
+
+    Day-0: returns the current baseline as a record list so the frontend map
+    layer has something to render. Replaced with a DB query once the real
+    baseline is materialized.
+    """
+    baseline = load_baseline()
+    return baseline.to_dict(orient="records")
 
 
 @router.get("/counties/{fips}/history")
@@ -83,7 +91,11 @@ def run_scenario_endpoint(
     scenario_id: ScenarioID,
     params: CustomScenarioParams | None = None,
 ) -> ScenarioResult:
-    raise HTTPException(status_code=501, detail="Day 4 — teammate + Raj")
+    baseline = load_baseline()
+    try:
+        return run_scenario(scenario_id, baseline, params=params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # --- Standalone dev server (only used for iteration before mounting into parent) ---
