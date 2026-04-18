@@ -142,6 +142,28 @@ def build() -> pd.DataFrame:
         )
         log.info("  TX TWDB override: %d counties get real thickness+decline", mask.sum())
 
+    # --- 3c. NE DNR override — thickness for NE counties without USGS gwlevels data ---
+    ne = _load_if_exists("ne_dnr_county_summary.parquet")
+    if ne is not None and len(ne):
+        ne_m = ne.set_index("fips")["saturated_thickness_m"]
+        # Only overwrite where we don't already have thickness (avoid stomping gwlevels/TWDB)
+        missing_thickness = wide["saturated_thickness_m"].isna()
+        mask = wide["fips"].isin(ne_m.index) & missing_thickness
+        wide.loc[mask, "saturated_thickness_m"] = wide.loc[mask, "fips"].map(ne_m)
+        # NE is spec's "slowest depletion" state (§9 featured story 3) — default
+        # decline to -0.10 m/yr (vs. HPA-wide -0.30) where we don't have real data.
+        ne_missing_decline = wide["annual_decline_m"].isna() & wide["fips"].isin(ne_m.index)
+        wide.loc[ne_missing_decline, "annual_decline_m"] = -0.10
+        log.info("  NE DNR override: %d counties get real thickness", mask.sum())
+
+        # Also refine well count + median well depth from NE DNR for all NE counties
+        ne_cols = ne.set_index("fips")[["n_active_irr_wells", "median_total_depth_ft"]]
+        ne_mask = wide["fips"].isin(ne_cols.index)
+        # Prefer NE DNR's total_depth_ft over USGS monitoring-well depth
+        wide.loc[ne_mask, "median_well_depth_ft"] = (
+            wide.loc[ne_mask, "fips"].map(ne_cols["median_total_depth_ft"])
+        )
+
     # Fallbacks for counties without gwlevels or TWDB data
     # Median HPA saturated thickness ~30 m (per Deines 2019), decline -0.3 m/yr.
     wide["saturated_thickness_m"] = wide["saturated_thickness_m"].fillna(30.0)
