@@ -128,7 +128,21 @@ def build() -> pd.DataFrame:
         wide["saturated_thickness_m"] = pd.NA
         wide["annual_decline_m"] = pd.NA
 
-    # Fallbacks for counties without gwlevels data
+    # --- 3b. TX TWDB override — real thickness + decline for TX HPA counties ---
+    twdb = _load_if_exists("twdb_county_thickness.parquet")
+    if twdb is not None and len(twdb):
+        twdb_m = twdb.set_index("fips")[["saturated_thickness_m", "annual_decline_m"]]
+        # Overwrite where TWDB has data (strictly better than USGS sample + fallback)
+        mask = wide["fips"].isin(twdb_m.index)
+        wide.loc[mask, "saturated_thickness_m"] = (
+            wide.loc[mask, "fips"].map(twdb_m["saturated_thickness_m"])
+        )
+        wide.loc[mask, "annual_decline_m"] = (
+            wide.loc[mask, "fips"].map(twdb_m["annual_decline_m"])
+        )
+        log.info("  TX TWDB override: %d counties get real thickness+decline", mask.sum())
+
+    # Fallbacks for counties without gwlevels or TWDB data
     # Median HPA saturated thickness ~30 m (per Deines 2019), decline -0.3 m/yr.
     wide["saturated_thickness_m"] = wide["saturated_thickness_m"].fillna(30.0)
     wide["annual_decline_m"] = wide["annual_decline_m"].fillna(-0.30)
