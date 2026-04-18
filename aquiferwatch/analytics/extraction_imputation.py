@@ -1,8 +1,12 @@
-"""LightGBM imputation for counties with unreported extractions (Texas, SD, WY).
+"""LightGBM / XGBoost / CatBoost imputation for counties with unreported extractions.
 
 Training signal: Kansas + Nebraska metered pumpage (from kgs_wimas + ne_dnr).
 Features: irrigated acreage by crop, crop mix, saturated thickness, well density,
 PRISM precipitation, ERS crop price signals.
+
+The model experimentation happens in `notebooks/01_tx_extraction_imputation.ipynb`
+using the shared wrappers in `aquiferwatch.analytics.models`. This module owns
+the *production* training + inference entrypoints once Vignesh picks a winner.
 
 Every training run goes through `aquiferwatch.mlflow_utils.start_run(module="extraction_imputation")`.
 """

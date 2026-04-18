@@ -49,3 +49,31 @@ This installs a git filter so outputs don't pollute diffs. Run once per clone.
 ## Rule 5 — if you need someone else's notebook, you should not need to read their cells to understand it
 
 Pair a notebook with a one-paragraph header cell: *what question, what data, what method, what conclusion*. That's the contract.
+
+---
+
+## Research traps documented up-front
+
+Things that feel like progress but aren't. Listed here so we don't each discover them separately.
+
+### Modeling
+
+- **XGBoost vs. LightGBM vs. CatBoost is usually a <5% fight on tabular.** They share the GBDT core. Don't spend Day-2 hunting for the "best" one — benchmark once, pick one for iteration, re-benchmark at the end.
+- **Stacking three near-identical GBDTs rarely helps much.** If you want ensemble diversity, mix a GBDT with a linear model / KNN / per-group baseline.
+- **Per-county GBDT is an overfitting machine** at ~20–30 points per county. Use pooled models with county as a feature or group-level mean encoding.
+- **Random-row CV on county-year data is cheating.** Same-county years share geology/infra; splits must be by FIPS (GroupKFold). A model that looks great under random CV but flat under spatial CV is overfitting to county identity.
+- **Recursive multi-step forecasting for 25-year projections is a known trap** (M6 result). For long horizons, use direct-multi-output or physics-informed extrapolation, not iterated one-step.
+- **Synthetic-data leaderboards don't transfer.** The generators in `aquiferwatch/data/synthetic*.py` have known structure. Treat synthetic scores as pipeline smoke tests, not model-selection signal.
+
+### Foundation models
+
+- **Agricultural foundation models (Presto, Prithvi, SatMAE, CropFM)** operate on satellite imagery, not county tabular data. Integrating them = multi-day pipeline to extract per-county pixel embeddings. Skip unless we've already cleared the accuracy gate and have 2+ days of buffer.
+- **TabPFN v2 is worth 30 minutes.** It's the only foundation model that competes with GBDTs on <10k-row tabular. Drop-in API, CPU/GPU. Include it as a fourth model in notebook 01 once GBDT baselines are stable.
+- **LLMs / embeddings of county text descriptions** — not applicable here. Don't go looking.
+
+### Evaluation
+
+- **Point accuracy alone is insufficient.** p10/p90 coverage is the acceptance metric for the map's uncertainty rings. Target 0.78–0.82.
+- **Don't tune hyperparams on the test set.** Hold out a validation split or use nested CV. `optuna` + GroupKFold is the right pattern when we're ready to sweep.
+- **Feature importance plots lie about causal structure.** They report what the model uses, not what actually drives the outcome. Don't use them for policy claims.
+

@@ -76,3 +76,6 @@ logs/
 # Misc
 .cache/
 tmpclaude-*
+
+# Claude Code local settings
+.claude/
