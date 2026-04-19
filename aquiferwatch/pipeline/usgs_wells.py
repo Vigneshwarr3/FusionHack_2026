@@ -2,11 +2,20 @@
 
 Two pulls:
   1. Site inventory per HPA state via `nwis/site/` (RDB format)
-  2. Annual groundwater levels per well via `nwis/gwlevels/` (RDB format)
+  2. Annual groundwater levels per well via the OGC `field-measurements`
+     collection (legacy `nwis/gwlevels/` was decommissioned Fall 2025)
 
 Filters to wells with the High Plains aquifer code (N100HGHPLN), which is
 USGS's national-aquifer classification and matches the polygons in the
 HPA ScienceBase shapefile.
+
+TODO(post-MVP): swap our hand-rolled OGC loop for `dataretrieval-python`
+(https://github.com/DOI-USGS/dataretrieval-python). Maintained by USGS
+OWI, supports bulk monitoring_location_id lists in one call (vs our
+one-request-per-site loop), handles API-key auth for higher rate
+limits, and binds the `daily` / `latest-daily` collections that would
+power a live time-scrubber feature. Hit rate won't change (OGC data
+density is what it is), but pull speed improves materially.
 
 Outputs:
   data/raw/usgs/sites_{state}.rdb            (cached RDB per state)
