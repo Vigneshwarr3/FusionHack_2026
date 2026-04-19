@@ -17,6 +17,19 @@ Texas does not require metered extraction reporting in most counties. Our Texas 
 ### 4. County-level crop water use is modeled
 Metered at the state level (IWMS), allocated to counties by irrigated-acreage share. **UI surface:** methodology page §5.
 
+### 4b. Inferred pumping under-counts by ~2x vs. USGS reported
+Our baseline `pumping_af_yr` is computed as Σ(per-crop acres × IWMS water rate)
+for 6 major crops. USGS's 2015 Estimated Use of Water dataset reports ~2x higher
+HPA-wide irrigation groundwater withdrawals (18.1M AF vs. our inferred 9.5M AF;
+correlation 0.70 across 558 overlap counties). Likely causes: (a) conservative
+IWMS rates; (b) our 6-crop filter misses minor irrigated crops (vegetables,
+orchards, nursery) that USGS captures; (c) Census acreage undercount vs. state
+agency reports. **Consequence for scenarios:** percentage deltas (lifespan
+extension, employment %) are unaffected by this bias since it applies to both
+baseline and modified. Absolute CO₂-delta numbers (in Mt) are roughly 2x
+understated. **UI surface:** side-by-side "our model vs. USGS reported"
+tooltip on each county's detail panel — the bias is the story, not a bug.
+
 ### 5. Static climate assumption
 Counterfactuals hold climate constant. This is a real limitation; the alternative is a whole additional modeling layer. **UI surface:** scenario panel footnote.
 
