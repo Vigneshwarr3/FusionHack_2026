@@ -128,19 +128,40 @@ def build() -> pd.DataFrame:
         wide["saturated_thickness_m"] = pd.NA
         wide["annual_decline_m"] = pd.NA
 
-    # --- 3b. TX TWDB override — real thickness + decline for TX HPA counties ---
+    # --- 3a. NGWMN override (top priority) — real USGS + state-agency
+    # water-level measurements aggregated by the National Ground-Water
+    # Monitoring Network. Drop `data(*).zip` files from the NGWMN portal
+    # into data/raw/ngwmn/ and compose_baseline picks up whatever counties
+    # are present. This takes precedence over every other source because
+    # NGWMN explicitly provides both thickness (via WellDepth − DepthToWater)
+    # and decline (via per-well time series). ---
+    ngwmn = _load_if_exists("ngwmn_county_thickness.parquet")
+    if ngwmn is not None and len(ngwmn):
+        ngwmn_m = ngwmn.set_index("fips")[["saturated_thickness_m", "annual_decline_m"]]
+        mask = wide["fips"].isin(ngwmn_m.index)
+        wide.loc[mask, "saturated_thickness_m"] = (
+            wide.loc[mask, "fips"].map(ngwmn_m["saturated_thickness_m"])
+        )
+        wide.loc[mask, "annual_decline_m"] = (
+            wide.loc[mask, "fips"].map(ngwmn_m["annual_decline_m"])
+        )
+        log.info("  NGWMN override: %d counties get real thickness+decline", mask.sum())
+
+    # --- 3b. TX TWDB override — real thickness + decline for TX HPA counties
+    # (fills gaps NGWMN doesn't cover; NGWMN wins where both exist since it
+    # aggregates multiple source networks). ---
     twdb = _load_if_exists("twdb_county_thickness.parquet")
     if twdb is not None and len(twdb):
         twdb_m = twdb.set_index("fips")[["saturated_thickness_m", "annual_decline_m"]]
-        # Overwrite where TWDB has data (strictly better than USGS sample + fallback)
-        mask = wide["fips"].isin(twdb_m.index)
+        missing = wide["saturated_thickness_m"].isna()
+        mask = wide["fips"].isin(twdb_m.index) & missing
         wide.loc[mask, "saturated_thickness_m"] = (
             wide.loc[mask, "fips"].map(twdb_m["saturated_thickness_m"])
         )
         wide.loc[mask, "annual_decline_m"] = (
             wide.loc[mask, "fips"].map(twdb_m["annual_decline_m"])
         )
-        log.info("  TX TWDB override: %d counties get real thickness+decline", mask.sum())
+        log.info("  TX TWDB fill: %d counties (gaps after NGWMN)", mask.sum())
 
     # --- 3b2. KS bedrock estimate — real per-county implied thickness from
     # KGS bedrock-wells dataset × ~50% fill ratio (Deines 2019 typical HPA
