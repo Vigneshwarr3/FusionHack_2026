@@ -142,6 +142,27 @@ def build() -> pd.DataFrame:
         )
         log.info("  TX TWDB override: %d counties get real thickness+decline", mask.sum())
 
+    # --- 3b2. KS bedrock estimate — real per-county implied thickness from
+    # KGS bedrock-wells dataset × ~50% fill ratio (Deines 2019 typical HPA
+    # fill). Better than single-well USGS medians which are noisy and
+    # gave suspicious outliers (e.g. Finney came out 5.9m vs Deines ~40m). ---
+    kbr = _load_if_exists("kgs_county_bedrock.parquet")
+    if kbr is not None and len(kbr):
+        kbr_m = kbr.set_index("fips")["implied_full_thickness_m"]
+        mask = wide["fips"].isin(kbr_m.index)
+        wide.loc[mask, "saturated_thickness_m"] = (
+            wide.loc[mask, "fips"].map(kbr_m) * 0.50
+        )
+        log.info("  KS bedrock × 0.5 fill: %d counties get thickness estimate", mask.sum())
+
+    # --- 3b3. KS decline rate from USGS-derived per-well slopes where available ---
+    ks_decline = _load_if_exists("kgs_county_thickness.parquet")
+    if ks_decline is not None and len(ks_decline):
+        dec_m = ks_decline.set_index("fips")["annual_decline_m"]
+        mask = wide["fips"].isin(dec_m.index)
+        wide.loc[mask, "annual_decline_m"] = wide.loc[mask, "fips"].map(dec_m)
+        log.info("  KS USGS-derived decline: %d counties", mask.sum())
+
     # --- 3c. NE DNR override — thickness for NE counties without USGS gwlevels data ---
     ne = _load_if_exists("ne_dnr_county_summary.parquet")
     if ne is not None and len(ne):
