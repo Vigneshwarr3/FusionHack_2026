@@ -147,7 +147,8 @@ def fetch_gwlevels(
             if datetime_range:
                 params["datetime"] = datetime_range
             try:
-                r = session.get(FIELD_MEAS_URL, params=params, timeout=60)
+                # 15s timeout — previous 60s caused hangs on unresponsive wells
+                r = session.get(FIELD_MEAS_URL, params=params, timeout=15)
                 if r.status_code == 429:
                     rate_limit_hits += 1
                     time.sleep(5.0)
