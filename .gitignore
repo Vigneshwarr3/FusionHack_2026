@@ -41,12 +41,14 @@ secrets.txt
 # Data — raw pulls stay local, processed parquet goes to S3
 data/raw/
 data/interim/
+data/processed/web/
 *.parquet
 *.pkl
 *.pickle
 *.tar.gz
 
 # Large binary caches
+*.geojson
 *.geojson.gz
 *.tif
 *.shp
