@@ -62,10 +62,16 @@ Current snapshot: ~113 MB across 29 parquets covering all 8 HPA states. The vers
 
 ## Colab setup (once per session)
 
-Each notebook starts with:
+Each notebook starts with two cells — a `--no-deps` install (so we don't
+downgrade Colab's pre-installed IPython / jupyter / matplotlib) followed by
+the aquiferwatch bootstrap:
 
 ```python
-!pip -q install git+https://github.com/Vigneshwarr3/FusionHack_2026.git
+# cell 1: install
+!pip install -q --no-deps git+https://github.com/Vigneshwarr3/FusionHack_2026.git
+!pip install -q lightgbm xgboost catboost mlflow boto3 pydantic-settings
+
+# cell 2: bootstrap
 from aquiferwatch.colab import bootstrap
 bootstrap(team_member="vignesh")
 ```
