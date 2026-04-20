@@ -41,7 +41,15 @@ SECRET_KEYS: tuple[str, ...] = (
 
 
 def bootstrap(team_member: str, extra_secrets: Iterable[str] = ()) -> None:
-    """Wire up env + MLflow. Safe to call multiple times."""
+    """Wire up env + MLflow. Safe to call multiple times.
+
+    Resolution order for each secret key:
+      1. `os.environ` (already exported by the shell)
+      2. Google Colab `userdata` (when running in Colab)
+      3. A repo-root `.env` file (when running locally in VSCode / Jupyter)
+    First one found wins; later sources don't overwrite earlier ones.
+    """
+    _load_local_dotenv((*SECRET_KEYS, *extra_secrets))
     _load_colab_secrets((*SECRET_KEYS, *extra_secrets))
     os.environ["AQW_TEAM_MEMBER"] = team_member
 
@@ -70,7 +78,7 @@ def _load_colab_secrets(keys: Iterable[str]) -> None:
     try:
         from google.colab import userdata  # type: ignore
     except ImportError:
-        return  # not in Colab; caller already has a .env
+        return  # not in Colab; .env path handles this case
 
     for k in keys:
         if os.environ.get(k):
@@ -79,5 +87,47 @@ def _load_colab_secrets(keys: Iterable[str]) -> None:
             v = userdata.get(k)
         except Exception:
             v = None
+        if v:
+            os.environ[k] = v
+
+
+def _load_local_dotenv(keys: Iterable[str]) -> None:
+    """Read missing keys from a repo-root `.env` file into `os.environ`.
+
+    Pydantic reads `.env` into its own settings object but does *not* export to
+    `os.environ`, which means MLflow (which reads env vars directly) can't see
+    credentials that only live in `.env`. This function bridges that gap for
+    the specific keys `bootstrap()` cares about.
+
+    Skipped when running in Colab (userdata is the canonical source there).
+    """
+    try:
+        import google.colab  # type: ignore # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    # Walk up from this file to find a .env (repo root).
+    from pathlib import Path
+
+    here = Path(__file__).resolve()
+    for parent in (here.parent, *here.parents):
+        candidate = parent / ".env"
+        if candidate.is_file():
+            dotenv_path = candidate
+            break
+    else:
+        return  # no .env anywhere; leave os.environ alone
+
+    try:
+        from dotenv import dotenv_values  # python-dotenv is already a dep
+    except ImportError:
+        return
+
+    values = dotenv_values(dotenv_path)
+    for k in keys:
+        if os.environ.get(k):
+            continue
+        v = values.get(k)
         if v:
             os.environ[k] = v

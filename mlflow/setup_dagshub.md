@@ -34,17 +34,20 @@ Toggle **Notebook access** on each secret so `bootstrap()` can read them.
 
 Re-run the bootstrap cell — you should see the tracking URI printed and no more "WARNING: runs will be lost" message. Subsequent `train_and_log` calls log to DagsHub.
 
-### Local `.env`
+### Local `.env` (VSCode, Jupyter, any non-Colab environment)
 
-Add to your `.env`:
+Colab Secrets are Colab-only — VSCode won't see them. For local work, add the
+three values to your `.env`:
 
 ```
-MLFLOW_TRACKING_URI=https://dagshub.com/<raj>/aquiferwatch.mlflow
+MLFLOW_TRACKING_URI=https://dagshub.com/<raj>/FusionHack_2026.mlflow
 MLFLOW_TRACKING_USERNAME=<your-dagshub-username>
 MLFLOW_TRACKING_PASSWORD=<your-dagshub-token>
 ```
 
-Restart your Jupyter kernel. The `settings` object in `aquiferwatch.config` picks it up automatically.
+`bootstrap()` auto-loads `.env` into `os.environ` when it's not in Colab, so
+MLflow sees the credentials when it reads them directly. Restart your Jupyter
+kernel after editing `.env` — env vars are read once at import.
 
 ## Viewing runs
 
