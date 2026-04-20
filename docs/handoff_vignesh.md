@@ -22,17 +22,19 @@ Current snapshot: ~113 MB across 29 parquets covering all 8 HPA states. The vers
    poetry install
    ```
 
-2. **Copy the shared `.env`.** The parent project `Agricultural_Data_Analysis/.env` already has the AWS keys, DB URL, and USDA API keys we reuse. Copy it into `aquifer-watch/.env`. Verify with:
-   ```bash
-   poetry run python -c "from aquiferwatch.config import settings; print(settings.s3_bucket, settings.aws_region)"
-   # -> usda-analysis-datasets us-east-2
-   ```
-
-3. **Fetch the data snapshot pinned in `DATA_VERSION`.**
+2. **Fetch the data snapshot pinned in `DATA_VERSION`.**
    ```bash
    poetry run python scripts/fetch_data.py
    ```
-   Downloads only files whose sha256 doesn't match the local copy. Land in `data/processed/`.
+   The S3 bucket is public-read, so no AWS keys are required. The fetch script
+   falls back to anonymous access if creds aren't configured. Downloads only
+   files whose sha256 doesn't match the local copy. Lands in `data/processed/`.
+
+3. **(Optional) Set up `.env`** if you want to run ETL pipelines or point at
+   non-default MLflow / USDA / NOAA endpoints. Not needed to run the notebooks.
+   ```bash
+   cp .env.example .env   # if one exists, or ask Raj for a copy
+   ```
 
 4. **(Optional) Confirm the notebook imports work.**
    ```bash
@@ -53,20 +55,17 @@ from aquiferwatch.colab import bootstrap
 bootstrap(team_member="vignesh")
 ```
 
-That pulls AWS + MLflow creds from your Colab **Secrets** panel into the process env. Set these secrets (gear icon → Secrets) once:
+The S3 bucket is public-read, so the first `load_baseline()` call works out of
+the box \u2014 no Colab Secrets needed for data access. The only secrets worth
+setting (gear icon \u2192 Secrets) are for MLflow, if you want your runs on the
+shared tracking server:
 
-| Secret | Value |
-|---|---|
-| `AWS_ACCESS_KEY_ID` | from parent `.env` |
-| `AWS_SECRET_ACCESS_KEY` | from parent `.env` |
-| `AWS_REGION` | `us-east-2` |
-| `S3_BUCKET` | `usda-analysis-datasets` |
-| `MLFLOW_TRACKING_URI` | shared server (see [mlflow/README.md](../mlflow/README.md)) |
-| `MLFLOW_TRACKING_USERNAME` | yours |
-| `MLFLOW_TRACKING_PASSWORD` | yours |
-| `AQW_DATA_VERSION` | optional; overrides `DATA_VERSION` file |
-
-Then the first `load_baseline()` call transparently fetches the parquet from S3 into Colab's local storage.
+| Secret | Value | Required for |
+|---|---|---|
+| `MLFLOW_TRACKING_URI` | shared server (see [mlflow/README.md](../mlflow/README.md)) | logged MLflow runs |
+| `MLFLOW_TRACKING_USERNAME` | yours | same |
+| `MLFLOW_TRACKING_PASSWORD` | yours | same |
+| `AQW_DATA_VERSION` | e.g. `latest` or `v2026-04-20-01` | override the pinned DATA_VERSION |
 
 ## Running the notebooks
 

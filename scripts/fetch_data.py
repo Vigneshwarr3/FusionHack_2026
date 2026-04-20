@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 
 import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -44,10 +46,17 @@ def _sha256(path: Path, buf: int = 1 << 20) -> str:
 
 
 def _client():
+    """S3 client for a public bucket: try credentialed first, fall back to unsigned.
+
+    The bucket is public-read, so credentialed access isn't required \u2014 but if
+    creds are available we use them (higher rate limits, clearer audit trail).
+    """
     try:
-        return boto3.client("s3", region_name=REGION)
-    except NoCredentialsError:
-        sys.exit("AWS creds not configured. Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env.")
+        client = boto3.client("s3", region_name=REGION)
+        client.list_objects_v2(Bucket=BUCKET, Prefix=f"{PREFIX}/", MaxKeys=1)
+        return client
+    except (NoCredentialsError, ClientError):
+        return boto3.client("s3", region_name=REGION, config=Config(signature_version=UNSIGNED))
 
 
 def _resolve_version(arg: str | None) -> str:

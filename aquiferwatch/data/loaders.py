@@ -49,6 +49,8 @@ def _fetch_from_s3(name: str, dst: Path) -> None:
     """Download one parquet from S3 into `dst`. Raises with a useful message on failure."""
     try:
         import boto3
+        from botocore import UNSIGNED
+        from botocore.client import Config
         from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
     except ImportError as e:
         raise RuntimeError(
@@ -60,20 +62,25 @@ def _fetch_from_s3(name: str, dst: Path) -> None:
     key = f"{S3_PREFIX}/{version}/{name}"
     bucket = settings.s3_bucket
 
+    # Bucket is public-read \u2014 try credentialed first (higher rate limits),
+    # fall back to unsigned so teammates without AWS keys still work.
+    dst.parent.mkdir(parents=True, exist_ok=True)
     try:
         s3 = boto3.client("s3", region_name=settings.aws_region)
-        dst.parent.mkdir(parents=True, exist_ok=True)
         s3.download_file(bucket, key, str(dst))
-    except NoCredentialsError as e:
-        raise RuntimeError(
-            f"Can't fetch s3://{bucket}/{key}: no AWS credentials. "
-            "Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env "
-            "(reuse the values from Agricultural_Data_Analysis/.env)."
-        ) from e
+        return
+    except (NoCredentialsError, ClientError, BotoCoreError):
+        pass
+
+    try:
+        s3 = boto3.client(
+            "s3", region_name=settings.aws_region, config=Config(signature_version=UNSIGNED)
+        )
+        s3.download_file(bucket, key, str(dst))
     except (BotoCoreError, ClientError) as e:
         raise RuntimeError(
-            f"Failed to download s3://{bucket}/{key}. "
-            f"Is the DATA_VERSION ({version}) published? Error: {e}"
+            f"Failed to download s3://{bucket}/{key} (anonymous). "
+            f"Is the DATA_VERSION ({version}) published and is the object public? Error: {e}"
         ) from e
 
 
