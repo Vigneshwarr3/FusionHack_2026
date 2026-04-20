@@ -20,22 +20,22 @@ Current snapshot: ~113 MB across 29 parquets covering all 8 HPA states. The vers
    git clone https://github.com/Vigneshwarr3/FusionHack_2026.git aquifer-watch
    cd aquifer-watch
 
-   # pick ONE of the following:
-
-   # (a) plain pip \u2014 no extra tooling required
    python -m venv .venv
    .venv\Scripts\activate        # on Windows
    # source .venv/bin/activate   # on macOS/Linux
-   pip install -r requirements.txt
-   pip install -e .              # install the aquiferwatch package itself
 
-   # (b) Poetry \u2014 if you already have it, or install via `pipx install poetry`
-   poetry install
+   pip install -r requirements.txt
+   pip install -e . --no-deps    # install the aquiferwatch package itself
    ```
 
-   `requirements.txt` is exported from `poetry.lock` so both paths produce the
-   same pinned versions. If you use (a), replace `poetry run <cmd>` with just
-   `<cmd>` in every later step (the venv activation handles it).
+   `requirements.txt` is a `pip freeze` from Raj's working venv — 194 pinned
+   packages tested end-to-end against the notebooks. Use `--no-deps` on the
+   editable install so pip doesn't try to rebuild pyarrow from source.
+
+   **Python version:** 3.13 or 3.14. On 3.14 some packages (pyarrow, scipy)
+   only have wheels as of pyarrow 23 / scipy 1.17 — `requirements.txt` already
+   pins those. If pip tries to build from source, upgrade pip first:
+   `python -m pip install -U pip`.
 
 2. **Fetch the data snapshot pinned in `DATA_VERSION`.**
    ```bash
