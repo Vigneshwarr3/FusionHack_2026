@@ -19,8 +19,23 @@ Current snapshot: ~113 MB across 29 parquets covering all 8 HPA states. The vers
    ```bash
    git clone https://github.com/Vigneshwarr3/FusionHack_2026.git aquifer-watch
    cd aquifer-watch
+
+   # pick ONE of the following:
+
+   # (a) plain pip \u2014 no extra tooling required
+   python -m venv .venv
+   .venv\Scripts\activate        # on Windows
+   # source .venv/bin/activate   # on macOS/Linux
+   pip install -r requirements.txt
+   pip install -e .              # install the aquiferwatch package itself
+
+   # (b) Poetry \u2014 if you already have it, or install via `pipx install poetry`
    poetry install
    ```
+
+   `requirements.txt` is exported from `poetry.lock` so both paths produce the
+   same pinned versions. If you use (a), replace `poetry run <cmd>` with just
+   `<cmd>` in every later step (the venv activation handles it).
 
 2. **Fetch the data snapshot pinned in `DATA_VERSION`.**
    ```bash
