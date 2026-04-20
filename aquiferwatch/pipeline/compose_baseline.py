@@ -163,26 +163,27 @@ def build() -> pd.DataFrame:
         )
         log.info("  TX TWDB fill: %d counties (gaps after NGWMN)", mask.sum())
 
-    # --- 3b2. KS bedrock estimate — real per-county implied thickness from
-    # KGS bedrock-wells dataset × ~50% fill ratio (Deines 2019 typical HPA
-    # fill). Better than single-well USGS medians which are noisy and
-    # gave suspicious outliers (e.g. Finney came out 5.9m vs Deines ~40m). ---
+    # --- 3b2. KS bedrock estimate — fills only gaps NGWMN/TWDB didn't cover.
+    # Real per-county implied thickness from KGS bedrock-wells × ~50% fill
+    # ratio (Deines 2019 typical HPA fill). Never overrides NGWMN data. ---
     kbr = _load_if_exists("kgs_county_bedrock.parquet")
     if kbr is not None and len(kbr):
         kbr_m = kbr.set_index("fips")["implied_full_thickness_m"]
-        mask = wide["fips"].isin(kbr_m.index)
+        missing = wide["saturated_thickness_m"].isna()
+        mask = wide["fips"].isin(kbr_m.index) & missing
         wide.loc[mask, "saturated_thickness_m"] = (
             wide.loc[mask, "fips"].map(kbr_m) * 0.50
         )
-        log.info("  KS bedrock × 0.5 fill: %d counties get thickness estimate", mask.sum())
+        log.info("  KS bedrock fill: %d counties (gaps after NGWMN/TWDB)", mask.sum())
 
-    # --- 3b3. KS decline rate from USGS-derived per-well slopes where available ---
+    # --- 3b3. KS decline rate from old sparse-USGS — gap-fill only ---
     ks_decline = _load_if_exists("kgs_county_thickness.parquet")
     if ks_decline is not None and len(ks_decline):
         dec_m = ks_decline.set_index("fips")["annual_decline_m"]
-        mask = wide["fips"].isin(dec_m.index)
+        missing_decline = wide["annual_decline_m"].isna()
+        mask = wide["fips"].isin(dec_m.index) & missing_decline
         wide.loc[mask, "annual_decline_m"] = wide.loc[mask, "fips"].map(dec_m)
-        log.info("  KS USGS-derived decline: %d counties", mask.sum())
+        log.info("  KS USGS-derived decline fill: %d counties (gaps only)", mask.sum())
 
     # --- 3c. NE DNR override — thickness for NE counties without USGS gwlevels data ---
     ne = _load_if_exists("ne_dnr_county_summary.parquet")

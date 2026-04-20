@@ -37,14 +37,19 @@ COUNTY_OUT = PROCESSED_DIR / "ngwmn_county_thickness.parquet"
 
 
 def ingest_all() -> None:
-    """Scan staging/ for zips, extract, build combined parquets."""
+    """Recursively scan data/raw/ngwmn/ for zips, build combined parquets.
+
+    Accepts any layout the user wants — flat, per-state subfolders
+    (NE/data(1).zip, KS/data(2).zip, ...), or staging/. The parser
+    recovers county identity from each zip's SITE_INFO.csv regardless.
+    """
     STAGING_DIR.mkdir(parents=True, exist_ok=True)
-    zips = sorted(STAGING_DIR.parent.glob("data*.zip")) + sorted(
-        STAGING_DIR.glob("data*.zip")
-    )
+    zips = sorted(STAGING_DIR.parent.rglob("data*.zip"))
     if not zips:
-        log.warning("no data*.zip files found in %s", STAGING_DIR)
+        log.warning("no data*.zip files found under %s", STAGING_DIR.parent)
         return
+    log.info("found %d zips across %d folders",
+             len(zips), len(set(z.parent for z in zips)))
 
     site_frames: list[pd.DataFrame] = []
     level_frames: list[pd.DataFrame] = []
@@ -89,6 +94,26 @@ def ingest_all() -> None:
     sites = pd.concat(site_frames, ignore_index=True)
     levels = pd.concat(level_frames, ignore_index=True)
 
+    # Across 100+ zips, NGWMN exports inconsistent types (some numeric,
+    # some object, some all-NaN). Coerce every object-dtype column to
+    # string so parquet serialization doesn't choke.
+    numeric_cols = {
+        "DecLatVa", "DecLongVa", "HorzAcy", "AltVa", "AltAcy", "WellDepth",
+        "StateCd", "CountyCd", "Original Value", "Accuracy Value",
+        "Depth to Water Below Land Surface in ft.",
+        "Water level in feet relative to NAVD88",
+    }
+    for col in sites.columns:
+        if col in numeric_cols:
+            sites[col] = pd.to_numeric(sites[col], errors="coerce")
+        elif sites[col].dtype == "object":
+            sites[col] = sites[col].astype(str)
+    for col in levels.columns:
+        if col in numeric_cols:
+            levels[col] = pd.to_numeric(levels[col], errors="coerce")
+        elif levels[col].dtype == "object":
+            levels[col] = levels[col].astype(str)
+
     # Build a canonical SiteId in WATERLEVEL too: WATERLEVEL uses AgencyCd+SiteNo
     # while SITE_INFO has a composite SiteId column. Normalize to AgencyCd-SiteNo
     # across both so joins work.
@@ -104,12 +129,21 @@ def ingest_all() -> None:
     elif "DateTime" in levels.columns:
         levels = levels.drop_duplicates(subset=["SiteId", "DateTime"], keep="last")
 
-    # Normalize the FIPS column for downstream joins
+    # Normalize the FIPS column for downstream joins. Coerce defensively —
+    # across 100+ zips a handful have StateCd/CountyCd as strings due to
+    # inconsistent NGWMN export encoding.
     if "StateCd" in sites.columns and "CountyCd" in sites.columns:
-        sites["fips"] = (
-            sites["StateCd"].astype(int).astype(str).str.zfill(2)
-            + sites["CountyCd"].astype(int).astype(str).str.zfill(3)
+        st = pd.to_numeric(sites["StateCd"], errors="coerce")
+        co = pd.to_numeric(sites["CountyCd"], errors="coerce")
+        valid = st.notna() & co.notna()
+        sites["fips"] = pd.NA
+        sites.loc[valid, "fips"] = (
+            st[valid].astype(int).astype(str).str.zfill(2)
+            + co[valid].astype(int).astype(str).str.zfill(3)
         )
+        bad = (~valid).sum()
+        if bad:
+            log.warning("  %d rows had non-numeric StateCd/CountyCd — dropped from FIPS", bad)
 
     # Numeric coercions
     for c in ("DecLatVa", "DecLongVa", "AltVa", "WellDepth"):
@@ -165,7 +199,9 @@ def build_county_thickness() -> pd.DataFrame:
     levels[depth] = pd.to_numeric(levels[depth], errors="coerce")
     levels = levels.dropna(subset=[depth])
     if time_col:
-        levels["year"] = pd.to_datetime(levels[time_col], errors="coerce").dt.year
+        # Mixed time zones across zips — force UTC to produce a uniform dtype
+        t = pd.to_datetime(levels[time_col], errors="coerce", utc=True)
+        levels["year"] = t.dt.year
     else:
         levels["year"] = pd.NA
 
