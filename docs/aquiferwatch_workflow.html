@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquiferWatch — End-to-End Workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f0e0c;
+    --ink-soft: #1a1816;
+    --paper: #f5f0e8;
+    --paper-soft: #ece5d8;
+    --paper-dim: #d9d0bf;
+    --forest: #2a4a3e;
+    --forest-soft: #3d6354;
+    --cold: #8ab0c8;
+    --cold-deep: #5a8299;
+    --rust: #b8553a;
+    --amber: #c9a24a;
+    --rule: #c9bfab;
+    --muted: #6b5f4a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 64px 48px;
+  }
+
+  /* ——— Masthead ——— */
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 28px;
+    margin-bottom: 48px;
+  }
+
+  .masthead-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--rust);
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  h1.title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 58px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px 0;
+    color: var(--ink);
+  }
+
+  .title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--forest);
+  }
+
+  .subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--muted);
+    margin: 0 0 24px 0;
+    max-width: 720px;
+  }
+
+  .byline {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .byline span strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ——— Dek (pull-quote intro) ——— */
+  .dek {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    line-height: 1.5;
+    color: var(--ink);
+    padding: 32px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 56px;
+    position: relative;
+  }
+
+  .dek::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 64px;
+    height: 3px;
+    background: var(--forest);
+  }
+
+  .dek strong {
+    font-weight: 700;
+    color: var(--forest);
+  }
+
+  /* ——— Sections ——— */
+  .section {
+    margin-bottom: 64px;
+  }
+
+  .section-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--cold-deep);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 36px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 20px 0;
+    color: var(--ink);
+  }
+
+  h3 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.25;
+    margin: 32px 0 12px 0;
+    color: var(--ink);
+  }
+
+  h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 24px 0 10px 0;
+    color: var(--forest);
+  }
+
+  p {
+    margin: 0 0 16px 0;
+    color: var(--ink-soft);
+  }
+
+  p.lede::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 64px;
+    float: left;
+    line-height: 0.85;
+    padding: 8px 10px 0 0;
+    color: var(--forest);
+  }
+
+  a { color: var(--cold-deep); text-decoration: underline; text-underline-offset: 3px; }
+
+  strong { color: var(--ink); font-weight: 700; }
+
+  code, .mono {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9em;
+    background: var(--paper-soft);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  ul, ol {
+    padding-left: 24px;
+    margin: 0 0 20px 0;
+  }
+
+  li {
+    margin-bottom: 8px;
+    color: var(--ink-soft);
+  }
+
+  /* ——— Pull quote ——— */
+  .pullquote {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.35;
+    color: var(--forest);
+    border-left: 3px solid var(--forest);
+    padding: 8px 0 8px 24px;
+    margin: 32px 0;
+  }
+
+  /* ——— KPI Strip ——— */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    margin: 32px 0;
+  }
+
+  .kpi {
+    padding: 24px 20px;
+    border-right: 1px solid var(--rule);
+  }
+
+  .kpi:last-child { border-right: none; }
+
+  .kpi-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 38px;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  .kpi-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* ——— Tables ——— */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 12px 16px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  tbody tr:hover { background: var(--paper-soft); }
+
+  td.num, th.num { font-family: 'DM Mono', monospace; text-align: right; }
+
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  .tag-high { background: var(--forest); color: var(--paper); }
+  .tag-low { background: var(--amber); color: var(--ink); }
+  .tag-metered { background: var(--cold-deep); color: var(--paper); }
+
+  /* ——— Callout boxes ——— */
+  .callout {
+    background: var(--paper-soft);
+    border-left: 3px solid var(--cold-deep);
+    padding: 20px 24px;
+    margin: 24px 0;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .callout-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cold-deep);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .callout p:last-child { margin-bottom: 0; }
+
+  .callout-forest { border-left-color: var(--forest); }
+  .callout-forest .callout-title { color: var(--forest); }
+
+  .callout-rust { border-left-color: var(--rust); }
+  .callout-rust .callout-title { color: var(--rust); }
+
+  /* ——— Tier cards ——— */
+  .tier {
+    background: var(--paper-soft);
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--rule);
+    position: relative;
+  }
+
+  .tier-1 { border-left-color: var(--forest); }
+  .tier-2 { border-left-color: var(--cold-deep); }
+  .tier-3 { border-left-color: var(--amber); }
+  .tier-4 { border-left-color: var(--rust); }
+
+  .tier-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+
+  .tier-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--ink);
+  }
+
+  .tier-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 2px;
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .tier-status.done { background: var(--forest); }
+  .tier-status.pending { background: var(--amber); color: var(--ink); }
+  .tier-status.stretch { background: var(--cold-deep); }
+
+  .tier p { margin-bottom: 8px; font-size: 15px; }
+  .tier p:last-child { margin-bottom: 0; }
+
+  /* ——— Code block ——— */
+  pre {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 24px;
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 20px 0;
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  /* ——— Feature list (frontend) ——— */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 24px 0;
+  }
+
+  .feature {
+    background: var(--paper-soft);
+    padding: 20px 22px;
+    border-radius: 3px;
+    border-top: 3px solid var(--forest);
+  }
+
+  .feature.stretch { border-top-color: var(--rust); }
+
+  .feature-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+
+  .feature-desc { font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+
+  /* ——— Next-step box ——— */
+  .next-step {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 40px 48px;
+    margin: 64px -16px 32px -16px;
+    border-radius: 3px;
+  }
+
+  .next-step .section-num { color: var(--cold); }
+  .next-step h2 { color: var(--paper); }
+  .next-step p { color: var(--paper-dim); }
+  .next-step ol { color: var(--paper-dim); }
+  .next-step li { color: var(--paper-dim); }
+  .next-step strong { color: var(--paper); }
+  .next-step code { background: var(--ink-soft); color: var(--cold); border: 1px solid var(--forest-soft); }
+
+  /* ——— Footer ——— */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+    margin-top: 64px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* ——— Responsive ——— */
+  @media (max-width: 720px) {
+    .container { padding: 40px 24px; }
+    h1.title { font-size: 40px; }
+    h2 { font-size: 28px; }
+    .dek { font-size: 19px; }
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+    .kpi:nth-child(2) { border-right: none; }
+    .kpi:nth-child(1), .kpi:nth-child(2) { border-bottom: 1px solid var(--rule); }
+    .feature-grid { grid-template-columns: 1fr; }
+    .next-step { margin: 48px 0 24px 0; padding: 28px 24px; }
+  }
+
+  @media print {
+    body { background: white; }
+    .next-step { background: #1a1816 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ═════════════ MASTHEAD ═════════════ -->
+  <header class="masthead">
+    <div class="masthead-top">
+      <div><span class="dot"></span>Internal Working Document · FusionHack 2026</div>
+      <div>2026-04-20</div>
+    </div>
+
+    <h1 class="title">AquiferWatch<br><em>workflow &amp; model plan</em></h1>
+
+    <p class="subtitle">How 248 counties of real aquifer measurements become a county-level accountability platform for the Ogallala — from data regime to deck.gl.</p>
+
+    <div class="byline">
+      <span>Author: <strong>Raj Vedire</strong></span>
+      <span>Collab: <strong>Vignesh (ML/DE)</strong></span>
+      <span>Scope: <strong>8 HPA states · 606 counties</strong></span>
+      <span>Status: <strong>Data locked, model next</strong></span>
+    </div>
+  </header>
+
+  <!-- ═════════════ DEK ═════════════ -->
+  <div class="dek">
+    Not a pure ML project. <strong>Physics-first simulation</strong>, GBDT where the data is thin, counterfactual engine on top, and a journalism-grade deck.gl map so a county board member can see — with footnotes — exactly how much water is left under them and who drained it.
+  </div>
+
+  <!-- ═════════════ KPI STRIP ═════════════ -->
+  <div class="kpi-strip">
+    <div class="kpi">
+      <div class="kpi-label">Counties in scope</div>
+      <div class="kpi-value">606</div>
+      <div class="kpi-desc">across 8 HPA states</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Real measurements</div>
+      <div class="kpi-value">248</div>
+      <div class="kpi-desc">41% with measured thickness + decline</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Simulation horizon</div>
+      <div class="kpi-value">1950—2100</div>
+      <div class="kpi-desc">annual, per-county</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Scenarios</div>
+      <div class="kpi-value">5 + 1</div>
+      <div class="kpi-desc">built-in plus one custom slider</div>
+    </div>
+  </div>
+
+  <!-- ═════════════ § 1 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 01 — The pitch</div>
+    <h2>End goal in one sentence</h2>
+
+    <p class="lede">A shareable, deck.gl dashboard that a journalist, policy analyst, or county extension agent can open and answer, per county, five questions: how much aquifer is left, when it runs dry, which crops drained it, what policy levers would change the trajectory, and — crucially — what source backs every number on screen.</p>
+
+    <p>The demo anchor (spec §8 Day 3) is a time scrubber from 1950 to 2100 — drag it, watch 606 counties desaturate as the Ogallala empties. That is the "oh sh*t" visual. Everything else hangs off it.</p>
+
+    <div class="pullquote">
+      The problem isn't that the Ogallala is draining. It's that no one can show a county board, in one view, how fast and who's responsible.
+    </div>
+  </section>
+
+  <!-- ═════════════ § 2 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 02 — Targets</div>
+    <h2>What we're actually predicting</h2>
+
+    <p>Three annual, per-county targets. Attribution on top. Uncertainty where we can defend it.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:4%;" class="num">#</th>
+          <th style="width:34%;">Target</th>
+          <th style="width:18%;">Units</th>
+          <th style="width:20%;">Horizon</th>
+          <th>Role in demo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="num">1</td>
+          <td><strong>Saturated thickness remaining</strong></td>
+          <td class="mono">meters</td>
+          <td class="mono">1950 → 2100</td>
+          <td>Color of the choropleth; height of the 3D extrusion</td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td><strong>Years-to-depletion</strong></td>
+          <td class="mono">years</td>
+          <td class="mono">per scenario</td>
+          <td>Headline number on county drill-down</td>
+        </tr>
+        <tr>
+          <td class="num">3</td>
+          <td><strong>Pumping-attributable CO₂</strong></td>
+          <td class="mono">Mt CO₂ / yr</td>
+          <td class="mono">annual</td>
+          <td>Climate-angle readout on methodology page</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Plus: attribution decomposition</h4>
+    <p>Pure arithmetic from crop acres × IWMS pumping rates — no ML needed. Feeds the <em>"who's responsible"</em> panel: what share of county pumping comes from corn, cotton, sorghum, wheat, soy, alfalfa.</p>
+  </section>
+
+  <!-- ═════════════ § 3 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 03 — Data</div>
+    <h2>How we use what we ingested</h2>
+
+    <p>Three data regimes per county. The model has to handle all three without pretending the tiers are equivalent.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:18%;">Tier</th>
+          <th style="width:12%;" class="num">Counties</th>
+          <th style="width:35%;">Source</th>
+          <th>Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag tag-high">modeled_high</span></td>
+          <td class="num">248 / 606</td>
+          <td>WIZARD · NGWMN · TWDB · NE DEE</td>
+          <td>Training labels + ground truth for validation</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-low">modeled_low</span></td>
+          <td class="num">~358</td>
+          <td>Bedrock × 0.5 estimate · HPA-median fallback</td>
+          <td>Targets for GBDT imputation (next sprint)</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-metered">metered</span></td>
+          <td class="num">pending</td>
+          <td>KS Open Records Request (filed 2026-04-18)</td>
+          <td>Validation labels + TX imputation training data</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Features already joined in the baseline parquet</h4>
+    <ul>
+      <li>Crop mix × IWMS pumping rates → inferred annual pumping per county</li>
+      <li>Bedrock depth, aquifer footprint fraction (KGS + USGS geology)</li>
+      <li>Neighboring-county thickness for spatial autocorrelation signal</li>
+      <li>When PRISM lands: annual precipitation anomaly</li>
+      <li>When KS ORR lands: metered pumpage as a second-opinion label</li>
+    </ul>
+
+    <div class="callout callout-rust">
+      <div class="callout-title">⚠ The 0.52× calibration</div>
+      <p>Our inferred pumping is roughly half of USGS 2015 reported. Documented in <code>docs/limitations.md §4b</code>. Percentage deltas are unaffected; absolute CO₂-Mt numbers are ~2× understated. We frame this as a <em>conservative estimate</em> in the UI — the honesty is the credibility feature, not a bug to hide.</p>
+    </div>
+  </section>
+
+  <!-- ═════════════ § 4 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 04 — Modeling</div>
+    <h2>A tiered approach, shipped end-to-end</h2>
+
+    <p>Ship the thinnest version of every tier before improving any one of them. That's how the demo stays alive while each layer gets better.</p>
+
+    <div class="tier tier-1">
+      <div class="tier-header">
+        <div class="tier-name">Tier 1 · Physics baseline</div>
+        <div class="tier-status done">done</div>
+      </div>
+      <p>Deterministic volumetric balance:</p>
+      <pre><code>thickness(t+1) = thickness(t) + (recharge − pumping) / (area × specific_yield)</code></pre>
+      <p>The scenario engine mutates pumping or recharge, re-runs forward from 1950. Already in <code>compose_baseline.py</code> + scenario engine. All 34 tests green.</p>
+    </div>
+
+    <div class="tier tier-2">
+      <div class="tier-header">
+        <div class="tier-name">Tier 2 · GBDT imputation</div>
+        <div class="tier-status pending">Vignesh's lane</div>
+      </div>
+      <p><strong>Train</strong> on 248 <code>modeled_high</code> counties: features → (thickness, decline).</p>
+      <p><strong>Predict</strong> for the 358 <code>modeled_low</code> counties to replace the crude bedrock/median fallback.</p>
+      <p><strong>Validate</strong> via leave-one-state-out CV: hold out KS, predict from NE+CO+TX+…, report RMSE.</p>
+      <p><strong>Expected win:</strong> fallback RMSE ~15 m → GBDT RMSE ~5–7 m (Deines 2019 benchmark).</p>
+    </div>
+
+    <div class="tier tier-3">
+      <div class="tier-header">
+        <div class="tier-name">Tier 3 · Scenario deltas</div>
+        <div class="tier-status done">done</div>
+      </div>
+      <p>Six counterfactuals mutate inputs then re-run the Tier 1 forward sim:</p>
+      <ol style="margin-top:8px;">
+        <li>Baseline — business-as-usual</li>
+        <li>KS LEMA — 20% pumping cut</li>
+        <li>Corn → sorghum crop swap</li>
+        <li>2012-level drought recurrence</li>
+        <li>No-till / cover-crop recharge boost</li>
+        <li>Custom slider — user-defined pumping Δ</li>
+      </ol>
+    </div>
+
+    <div class="tier tier-4">
+      <div class="tier-header">
+        <div class="tier-name">Tier 4 · Attribution</div>
+        <div class="tier-status done">done</div>
+      </div>
+      <p>Per-crop share of county pumping:</p>
+      <pre><code>crop_share = (acres × iwms_rate) / Σ(acres × iwms_rate)</code></pre>
+      <p>Pure arithmetic. No ML. Drives the "who's responsible" view.</p>
+    </div>
+
+    <h3 style="margin-top:40px;">Headroom — only if time permits</h3>
+    <ul>
+      <li>Temporal fusion transformer on well-level time series</li>
+      <li>Vignesh's ag foundation model embeddings as extra features</li>
+      <li>Quantile regression → confidence bands on the time scrubber</li>
+    </ul>
+  </section>
+
+  <!-- ═════════════ § 5 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 05 — Stakes</div>
+    <h2>Why the prediction matters</h2>
+
+    <p>The Ogallala supports <strong>~$35B / yr</strong> of agricultural output across 8 states. Recharge (0.5–3 in/yr) runs roughly <strong>10× slower</strong> than withdrawal — depletion is effectively irreversible on human timescales.</p>
+
+    <p>Policy is a state-by-state patchwork: Kansas LEMA districts, Texas rule of capture, Nebraska NRD governance. No one has a <strong>comparable county-level accountability view</strong> — journalists and county boards rely on state-aggregate USGS reports that average away the counties that are already catastrophically dry.</p>
+
+    <div class="callout callout-forest">
+      <div class="callout-title">Our contribution</div>
+      <p>A defensible, county-granular, methodology-transparent number someone can cite in a city council meeting or a Guardian article. The 0.52× USGS footnote in <code>docs/limitations.md</code> isn't embarrassment — it's the credibility stamp.</p>
+    </div>
+  </section>
+
+  <!-- ═════════════ § 6 ═════════════ -->
+  <section class="section">
+    <div class="section-num">§ 06 — Frontend</div>
+    <h2>What the UI should strive for</h2>
+
+    <p>Built as a new tab in the parent Next.js app — <em>not</em> a separate app. Reuses deck.gl + Cobbles &amp; Currents design tokens from <code>web_app/src/utils/design.ts</code>. The aesthetic anchor: <strong>Bloomberg Terminal meets NYT Upshot</strong>, not a gov.gov dashboard.</p>
+
+    <h3>Must-have — demo-critical</h3>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <div class="feature-title">Deck.gl choropleth</div>
+        <div class="feature-desc">606 HPA counties, color = saturated thickness remaining. Pan, zoom, hover for county stats.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Time scrubber 1950–2100</div>
+        <div class="feature-desc">Drag it. Watch counties desaturate and flip red. This is the demo-anchor visual.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Scenario panel</div>
+        <div class="feature-desc">Six buttons on the left rail. Instant re-run (&lt;200ms) on cached baselines.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">County drill-down</div>
+        <div class="feature-desc">Click a county → panel with thickness, years-to-depletion, per-crop pumping stack, data-quality badge.</div>
+      </div>
+      <div class="feature" style="grid-column: span 2;">
+        <div class="feature-title">Methodology page</div>
+        <div class="feature-desc">Every number on screen links to its source + its limitation note. Transparency is the whole product.</div>
+      </div>
+    </div>
+
+    <h3>Ambitious — go big if we have time</h3>
+
+    <div class="feature-grid">
+      <div class="feature stretch">
+        <div class="feature-title">Deep-linkable scenarios</div>
+        <div class="feature-desc"><code>/aquiferwatch/ks/finney?scenario=lema&year=2050</code> → exact state for Twitter / Slack shares.</div>
+      </div>
+      <div class="feature stretch">
+        <div class="feature-title">3D extrusion mode</div>
+        <div class="feature-desc">deck.gl ColumnLayer, column height = remaining thickness. Columns visibly collapse as the scrubber moves.</div>
+      </div>
+      <div class="feature stretch">
+        <div class="feature-title">Side-by-side compare</div>
+        <div class="feature-desc">Split-screen: left = BAU, right = LEMA. Same county, same year, different futures.</div>
+      </div>
+      <div class="feature stretch">
+        <div class="feature-title">Confidence bands</div>
+        <div class="feature-desc">Quantile-regression cone widening post-2050. Journalists want uncertainty made visible.</div>
+      </div>
+      <div class="feature stretch">
+        <div class="feature-title">"Screenshot for article"</div>
+        <div class="feature-desc">One click → branded PNG with citations baked in. Journalist-ready export.</div>
+      </div>
+      <div class="feature stretch">
+        <div class="feature-title">County story cards</div>
+        <div class="feature-desc">Pre-written 2-sentence vignettes for the 10 most-depleted counties — Sherman KS, Dallam TX, etc.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ NEXT STEP ═════════════ -->
+  <div class="next-step">
+    <div class="section-num">§ 07 — Next move</div>
+    <h2>Tier 2 GBDT, this week</h2>
+    <p>Ship GBDT imputation end-to-end while the KS Open Records Request is pending. The frontend waits until accuracy is satisfactory.</p>
+
+    <ol>
+      <li>Vignesh trains GBDT on the 248 <code>modeled_high</code> rows, leave-one-state-out CV.</li>
+      <li>Swap fallback entries in <code>compose_baseline.py</code> for GBDT predictions — keep the <code>modeled_low</code> flag so the UI can show data-quality.</li>
+      <li>Re-run all 34 tests, verify scenario math doesn't drift.</li>
+      <li>Add <code>rmse_m</code> column to baseline for per-county confidence display.</li>
+      <li><em>Then</em> — and only then — greenlight frontend integration.</li>
+    </ol>
+
+    <p style="margin-top:20px;"><strong>Deliverable:</strong> a <code>baseline.parquet</code> where every county has a thickness estimate backed either by measurement or by a defensible GBDT prediction with a quantified error bar.</p>
+  </div>
+
+  <!-- ═════════════ FOOTER ═════════════ -->
+  <footer>
+    <div>AquiferWatch · FusionHack 2026 · Cobbles &amp; Currents Studios</div>
+    <div>doc: aquiferwatch_workflow.html · rev 2026-04-20</div>
+  </footer>
+
+</div>
+
+</body>
+</html>
