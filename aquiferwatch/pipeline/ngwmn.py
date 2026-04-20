@@ -69,15 +69,20 @@ def ingest_all() -> None:
                 with zf.open(wl_name) as f:
                     levels = pd.read_csv(f, low_memory=False)
 
-            # Detect county from first row
+            # Report all distinct counties in this zip (not just first row —
+            # NGWMN zips often span multiple counties, e.g. a CO zip covered
+            # 12 counties in one bundle).
             if "StateCd" in sites.columns and "CountyCd" in sites.columns:
-                state = sites["StateCd"].iloc[0]
-                county = sites["CountyCd"].iloc[0]
-                fips = f"{int(state):02d}{int(county):03d}"
+                st_numeric = pd.to_numeric(sites["StateCd"], errors="coerce")
+                co_numeric = pd.to_numeric(sites["CountyCd"], errors="coerce")
+                pairs = pd.DataFrame(
+                    {"s": st_numeric, "c": co_numeric}
+                ).dropna().drop_duplicates()
+                n_counties = len(pairs)
+                state_name = sites["StateNm"].iloc[0] if "StateNm" in sites.columns else "?"
                 log.info(
-                    "    %s → %d sites, %d measurements (FIPS %s, %s)",
-                    zp.name, len(sites), len(levels), fips,
-                    sites["CountyNm"].iloc[0] if "CountyNm" in sites.columns else "?",
+                    "    %s → %d sites, %d measurements (%d counties in %s)",
+                    zp.name, len(sites), len(levels), n_counties, state_name,
                 )
             sites["source_zip"] = zp.name
             levels["source_zip"] = zp.name
