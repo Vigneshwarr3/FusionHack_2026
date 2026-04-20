@@ -128,24 +128,36 @@ def build() -> pd.DataFrame:
         wide["saturated_thickness_m"] = pd.NA
         wide["annual_decline_m"] = pd.NA
 
-    # --- 3a. NGWMN override (top priority) — real USGS + state-agency
-    # water-level measurements aggregated by the National Ground-Water
-    # Monitoring Network. Drop `data(*).zip` files from the NGWMN portal
-    # into data/raw/ngwmn/ and compose_baseline picks up whatever counties
-    # are present. This takes precedence over every other source because
-    # NGWMN explicitly provides both thickness (via WellDepth − DepthToWater)
-    # and decline (via per-well time series). ---
+    # --- 3a0. KGS WIZARD — authoritative Kansas water-level database.
+    # 26k KS wells, 611k measurements. Takes precedence over NGWMN for
+    # Kansas since WIZARD is the source-of-truth; NGWMN mirrors a subset. ---
+    wiz = _load_if_exists("kgs_wizard_county_thickness.parquet")
+    if wiz is not None and len(wiz):
+        wiz_m = wiz.set_index("fips")[["saturated_thickness_m", "annual_decline_m"]]
+        mask = wide["fips"].isin(wiz_m.index)
+        wide.loc[mask, "saturated_thickness_m"] = (
+            wide.loc[mask, "fips"].map(wiz_m["saturated_thickness_m"])
+        )
+        wide.loc[mask, "annual_decline_m"] = (
+            wide.loc[mask, "fips"].map(wiz_m["annual_decline_m"])
+        )
+        log.info("  KGS WIZARD override: %d KS counties", mask.sum())
+
+    # --- 3a. NGWMN fill — USGS + state-agency water-level measurements
+    # aggregated by the National Ground-Water Monitoring Network. Fills
+    # any county WIZARD didn't cover (mostly non-KS states). ---
     ngwmn = _load_if_exists("ngwmn_county_thickness.parquet")
     if ngwmn is not None and len(ngwmn):
         ngwmn_m = ngwmn.set_index("fips")[["saturated_thickness_m", "annual_decline_m"]]
-        mask = wide["fips"].isin(ngwmn_m.index)
+        missing = wide["saturated_thickness_m"].isna()
+        mask = wide["fips"].isin(ngwmn_m.index) & missing
         wide.loc[mask, "saturated_thickness_m"] = (
             wide.loc[mask, "fips"].map(ngwmn_m["saturated_thickness_m"])
         )
         wide.loc[mask, "annual_decline_m"] = (
             wide.loc[mask, "fips"].map(ngwmn_m["annual_decline_m"])
         )
-        log.info("  NGWMN override: %d counties get real thickness+decline", mask.sum())
+        log.info("  NGWMN fill: %d counties (gaps after WIZARD)", mask.sum())
 
     # --- 3b. TX TWDB override — real thickness + decline for TX HPA counties
     # (fills gaps NGWMN doesn't cover; NGWMN wins where both exist since it
