@@ -28,7 +28,9 @@ GRANT ALL PRIVILEGES ON DATABASE mlflow TO mlflow_user;
 
 **Step 2 — host the MLflow server**. Options, easiest first:
 
-- **Option A (recommended for hackathon): systemd on the existing EC2.** The parent project already runs `ag-prediction.service` on EC2. Add a sibling `mlflow.service`:
+- **Option D (recommended for hackathon, no infra): DagsHub.** Free MLflow tracking server, 2-minute setup, both teammates log to the same URL. See [setup_dagshub.md](setup_dagshub.md). The `colab.py` bootstrap + local `.env` already consume `MLFLOW_TRACKING_URI / USERNAME / PASSWORD` — just fill them in.
+
+- **Option A (self-hosted on parent EC2): systemd on the existing EC2.** The parent project already runs `ag-prediction.service` on EC2. Add a sibling `mlflow.service`:
 
   ```ini
   [Unit]

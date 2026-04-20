@@ -132,6 +132,111 @@ class QuantileBoostedRegressor:
 
 
 # ---------------------------------------------------------------------------
+# Conformal quantile regressor (calibrated uncertainty bands)
+# ---------------------------------------------------------------------------
+@dataclass
+class ConformalQuantileRegressor:
+    """Split-conformal calibration on top of ``QuantileBoostedRegressor``.
+
+    Raw LightGBM / XGBoost / CatBoost quantile regressors routinely produce
+    bands narrower than their nominal alpha \u2014 we saw p10/p90 coverage of
+    ~0.35 when 0.80 was requested. Split-conformal wraps the underlying
+    quantile model with a post-hoc calibration step whose marginal coverage
+    is *guaranteed* to be :math:`\\ge 1 - \\alpha` in finite samples
+    (Vovk et al. 2005; Romano et al. 2019 "Conformalized Quantile Regression").
+
+    Algorithm
+    ---------
+    1. Split training data into proper-train (``1 - cal_frac``) and
+       calibration (``cal_frac``) halves. When ``groups`` is passed the split
+       is by whole county, never by row.
+    2. Fit p_lo (alpha=``alpha_lo``) and p_hi (alpha=``alpha_hi``) on
+       proper-train only.
+    3. On the calibration set, compute the one-sided non-conformity score
+       :math:`s_i = \\max(p_{lo}(x_i) - y_i,\\; y_i - p_{hi}(x_i))`.
+    4. Let :math:`\\hat q = \\mathrm{quantile}(s, 1 - \\alpha_{\\text{target}})`
+       using the standard finite-sample correction.
+    5. At inference return bands :math:`[p_{lo}(x) - \\hat q,\\; p_{hi}(x) + \\hat q]`.
+
+    Choose ``alpha_lo / alpha_hi`` slightly inside the target band
+    (e.g. 0.1/0.9 for an 80% target) \u2014 the conformal shift widens them
+    exactly enough to hit target coverage. Too-wide nominal alphas cause
+    over-coverage and wider-than-necessary bands.
+    """
+
+    framework: Framework
+    params: dict[str, Any] = field(default_factory=dict)
+    alpha_lo: float = 0.1
+    alpha_hi: float = 0.9
+    coverage_target: float = 0.80
+    cal_frac: float = 0.3
+    seed: int = 42
+    quantile: QuantileBoostedRegressor | None = field(default=None, init=False, repr=False)
+    q_hat: float = field(default=0.0, init=False)
+
+    def fit(self, X: pd.DataFrame, y: pd.Series, groups: pd.Series | None = None):
+        rng = np.random.default_rng(self.seed)
+        if groups is not None:
+            g = pd.Series(np.asarray(groups), index=X.index)
+            uniq = np.array(sorted(g.unique()))
+            rng.shuffle(uniq)
+            n_cal = max(1, int(round(self.cal_frac * len(uniq))))
+            cal_groups = set(uniq[:n_cal])
+            cal_mask = g.isin(cal_groups).to_numpy()
+        else:
+            n = len(X)
+            n_cal = max(1, int(round(self.cal_frac * n)))
+            perm = rng.permutation(n)
+            cal_mask = np.zeros(n, dtype=bool)
+            cal_mask[perm[:n_cal]] = True
+
+        X_cal, y_cal = X.iloc[cal_mask], y.iloc[cal_mask]
+        X_fit, y_fit = X.iloc[~cal_mask], y.iloc[~cal_mask]
+
+        self.quantile = QuantileBoostedRegressor(
+            framework=self.framework,
+            params=self.params,
+            quantiles=(self.alpha_lo, 0.5, self.alpha_hi),
+        )
+        self.quantile.fit(X_fit, y_fit)
+
+        cal_preds = self.quantile.predict(X_cal)
+        lo_key = f"p{int(self.alpha_lo * 100)}"
+        hi_key = f"p{int(self.alpha_hi * 100)}"
+        lo = cal_preds[lo_key].to_numpy()
+        hi = cal_preds[hi_key].to_numpy()
+        yc = np.asarray(y_cal)
+        scores = np.maximum(lo - yc, yc - hi)
+
+        # Finite-sample conformal level: ceil((n_cal + 1) * (1 - alpha)) / n_cal
+        n_cal_actual = len(scores)
+        alpha = 1.0 - self.coverage_target
+        k = int(np.ceil((n_cal_actual + 1) * (1.0 - alpha)))
+        k = min(max(k, 1), n_cal_actual)
+        self.q_hat = float(np.sort(scores)[k - 1])
+        return self
+
+    def predict(self, X: pd.DataFrame) -> pd.DataFrame:
+        assert self.quantile is not None, "fit first"
+        raw = self.quantile.predict(X)
+        lo_key = f"p{int(self.alpha_lo * 100)}"
+        hi_key = f"p{int(self.alpha_hi * 100)}"
+        lo_name = f"p{int(round((1 - self.coverage_target) / 2 * 100))}"
+        hi_name = f"p{int(round((1 - (1 - self.coverage_target) / 2) * 100))}"
+        out = pd.DataFrame(
+            {
+                lo_name: raw[lo_key].to_numpy() - self.q_hat,
+                "p50": raw["p50"].to_numpy(),
+                hi_name: raw[hi_key].to_numpy() + self.q_hat,
+            }
+        )
+        # Also expose canonical p10 / p90 names so `quantile_coverage` works unchanged.
+        out["p10"] = out[lo_name]
+        out["p90"] = out[hi_name]
+        return out
+
+
+# ---------------------------------------------------------------------------
 # Stacking ensemble
 # ---------------------------------------------------------------------------
 @dataclass
@@ -239,10 +344,12 @@ def train_and_log(
         else:
             model.fit(X_train, y_train)
 
-        if isinstance(model, QuantileBoostedRegressor):
+        if isinstance(model, (QuantileBoostedRegressor, ConformalQuantileRegressor)):
             preds = model.predict(X_test)
             metrics = evaluate(y_test, preds["p50"].values)
             metrics.update(quantile_coverage(y_test, preds))
+            if isinstance(model, ConformalQuantileRegressor):
+                metrics["conformal_q_hat"] = model.q_hat
         else:
             preds = model.predict(X_test)
             metrics = evaluate(y_test, preds)
@@ -261,6 +368,15 @@ def _flatten_model_params(model) -> dict[str, Any]:
         return {
             "framework": model.framework,
             "quantiles": list(model.quantiles),
+            **_kv(model.params, prefix="p_"),
+        }
+    if isinstance(model, ConformalQuantileRegressor):
+        return {
+            "framework": model.framework,
+            "alpha_lo": model.alpha_lo,
+            "alpha_hi": model.alpha_hi,
+            "coverage_target": model.coverage_target,
+            "cal_frac": model.cal_frac,
             **_kv(model.params, prefix="p_"),
         }
     if isinstance(model, StackingEnsemble):

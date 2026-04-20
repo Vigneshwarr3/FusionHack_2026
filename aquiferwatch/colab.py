@@ -45,15 +45,24 @@ def bootstrap(team_member: str, extra_secrets: Iterable[str] = ()) -> None:
     _load_colab_secrets((*SECRET_KEYS, *extra_secrets))
     os.environ["AQW_TEAM_MEMBER"] = team_member
 
+    ephemeral = False
     if not os.environ.get("MLFLOW_TRACKING_URI"):
-        # Colab-friendly local fallback — keeps runs across cell re-runs
         os.environ["MLFLOW_TRACKING_URI"] = "sqlite:////content/mlflow.db"
+        ephemeral = True
 
     import mlflow
 
     mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
     print(f"team_member       = {team_member}")
     print(f"tracking URI      = {os.environ['MLFLOW_TRACKING_URI']}")
+
+    if ephemeral:
+        print()
+        print("WARNING: no MLFLOW_TRACKING_URI in Colab Secrets.")
+        print("  Runs will be logged to a SQLite file under /content and LOST when this")
+        print("  Colab session ends. To persist runs across sessions (and share them")
+        print("  with your teammate) see mlflow/setup_dagshub.md - 2-minute setup on")
+        print("  DagsHub's free MLflow tier.")
 
 
 def _load_colab_secrets(keys: Iterable[str]) -> None:
