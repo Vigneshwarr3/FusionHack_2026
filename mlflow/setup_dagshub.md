@@ -6,13 +6,17 @@ Fix: point MLflow at DagsHub's free hosted tracker. Both teammates see the same 
 
 ## One-time setup (Raj)
 
-1. Go to **https://dagshub.com**, sign up with GitHub (free).
-2. Create a new repo — name it `aquiferwatch` (or anything). Doesn't need to mirror the code; it's just a home for the MLflow server.
-3. Open the repo → click **Remote** → **Experiments** → copy the three values shown:
-   - `MLFLOW_TRACKING_URI` — looks like `https://dagshub.com/<your-username>/aquiferwatch.mlflow`
-   - `MLFLOW_TRACKING_USERNAME` — your DagsHub username
-   - `MLFLOW_TRACKING_PASSWORD` — click "Get token" to generate
-4. Share the username + token with Vignesh (or have him generate his own by accepting a repo invite).
+1. Go to **https://dagshub.com**, sign in with GitHub (free).
+2. Top-right **+ Create** → **Connect a repository** → **GitHub** → select
+   `Vigneshwarr3/FusionHack_2026`. Takes ~10 seconds. This gives you an MLflow
+   tracking endpoint attached to that repo.
+3. On the new DagsHub repo page, click the **green "Code"** button → **MLflow**
+   tab. Copy the tracking URI (e.g. `https://dagshub.com/<you>/FusionHack_2026.mlflow`).
+4. Generate a personal access token at **https://dagshub.com/user/settings/tokens**
+   (or: avatar → **Your settings** → **Tokens** → **Create new token**). Give it
+   `read` + `write` scope. Copy it immediately — DagsHub shows it only once.
+5. Share the username + token with Vignesh, or invite him as a collaborator
+   (**Collaboration** tab on the repo) and have him generate his own token.
 
 ## Adding the secrets
 
