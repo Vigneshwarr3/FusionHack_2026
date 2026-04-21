@@ -86,6 +86,16 @@ def build(tolerance: float) -> Path:
     keep = [
         "fips", "state", "state_name", "county_name",
         "saturated_thickness_m", "annual_decline_m", "recharge_mm_yr",
+        # HPA footprint — lets the frontend filter / dim non-aquifer counties
+        # so we don't paint a fake halo across east TX / west CO.
+        "hpa_overlap_pct", "overlap_area_km2", "county_area_km2",
+        "thickness_source",  # 'wells' | 'raster' | 'fallback' | 'none'
+        # Model-derived fields (see scripts/enrich_baseline.py). `decline_source`
+        # flags counties without a model prediction so the UI can dim them.
+        "annual_decline_m_pred", "decline_lo_m", "decline_hi_m",
+        "thickness_pred_next_m", "decline_source",
+        "years_until_uneconomic", "years_until_uneconomic_lo", "years_until_uneconomic_hi",
+        "model_id", "coverage_target",
         "pumping_af_yr", "pumping_af_yr_usgs2015", "irrigated_acres_total",
         "acres_corn", "acres_soybeans", "acres_sorghum", "acres_wheat",
         "acres_cotton", "acres_alfalfa",

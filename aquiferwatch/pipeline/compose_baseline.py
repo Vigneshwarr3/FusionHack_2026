@@ -219,10 +219,58 @@ def build() -> pd.DataFrame:
             wide.loc[ne_mask, "fips"].map(ne_cols["median_total_depth_ft"])
         )
 
-    # Fallbacks for counties without gwlevels or TWDB data
-    # Median HPA saturated thickness ~30 m (per Deines 2019), decline -0.3 m/yr.
-    wide["saturated_thickness_m"] = wide["saturated_thickness_m"].fillna(30.0)
-    wide["annual_decline_m"] = wide["annual_decline_m"].fillna(-0.30)
+    # --- 3d. USGS McGuire published rasters (SIR 2012-5177 / 2012-5291) ---
+    # Authoritative HPA-wide saturated-thickness (2009) + water-level change
+    # (predev→2011) zonal-averaged per county. Covers exactly the ~237 counties
+    # that sit over the aquifer footprint. Filled only where we don't already
+    # have direct well data, so state-specific sources still win.
+    raster = _load_if_exists("usgs_hpa_raster_thickness.parquet")
+    if raster is not None and len(raster):
+        raster["fips"] = raster["fips"].astype(str).str.zfill(5)
+        rast_thick = raster.set_index("fips")["thickness_m"]
+        rast_decline = raster.set_index("fips")["annual_decline_m"]
+
+        missing_thick = wide["saturated_thickness_m"].isna()
+        thick_mask = wide["fips"].isin(rast_thick.dropna().index) & missing_thick
+        wide.loc[thick_mask, "saturated_thickness_m"] = wide.loc[thick_mask, "fips"].map(rast_thick)
+        log.info("  USGS raster thickness fill: %d counties", thick_mask.sum())
+
+        missing_decline = wide["annual_decline_m"].isna()
+        decline_mask = wide["fips"].isin(rast_decline.dropna().index) & missing_decline
+        wide.loc[decline_mask, "annual_decline_m"] = wide.loc[decline_mask, "fips"].map(rast_decline)
+        log.info("  USGS raster decline fill: %d counties", decline_mask.sum())
+
+    # --- 3e. HPA overlap — county × aquifer-footprint intersection share.
+    # Critical for the UI: "HPA-state" counties aren't all "HPA-aquifer" counties.
+    # Frontend uses `hpa_overlap_pct` to filter or dim non-aquifer counties so
+    # we don't paint a fake flat halo around east TX / west CO.
+    overlap = _load_if_exists("hpa_county_overlap.parquet")
+    if overlap is not None and len(overlap):
+        overlap["fips"] = overlap["fips"].astype(str).str.zfill(5)
+        wide = wide.merge(
+            overlap[["fips", "overlap_pct", "overlap_area_km2", "county_area_km2"]]
+                .rename(columns={"overlap_pct": "hpa_overlap_pct"}),
+            on="fips", how="left",
+        )
+        wide["hpa_overlap_pct"] = wide["hpa_overlap_pct"].fillna(0.0)
+    else:
+        wide["hpa_overlap_pct"] = 0.0
+
+    # Fallback strategy (post-raster, post-overlap):
+    #   - Counties WITH HPA overlap but still missing thickness (very few):
+    #     use the HPA median ~30 m as a last-resort sentinel, flagged as such.
+    #   - Counties WITHOUT HPA overlap: leave thickness NaN so the frontend
+    #     doesn't paint them as "aquifer". These rows still carry crop /
+    #     pumping columns so they can feed the national-scale narrative.
+    over_hpa = wide["hpa_overlap_pct"] > 0
+    still_missing_thick = over_hpa & wide["saturated_thickness_m"].isna()
+    wide.loc[still_missing_thick, "saturated_thickness_m"] = 30.0
+    still_missing_decline = over_hpa & wide["annual_decline_m"].isna()
+    wide.loc[still_missing_decline, "annual_decline_m"] = -0.30
+    log.info(
+        "  last-resort HPA fallback (30m / -0.3): %d counties",
+        int(still_missing_thick.sum()),
+    )
     wide["recharge_mm_yr"] = 20.0  # HPA average — USGS Water Use assessments
 
     # --- 4. IWMS water rates — join at (state, crop) ---
@@ -309,12 +357,43 @@ def build() -> pd.DataFrame:
     # --- 11. Employment per county ---
     wide["employment_fte"] = wide["ag_value_usd"] * (0.021 / 1000.0)
 
-    # --- 12. Data quality tier per spec §4 ---
-    # Metered states: KS, NE with KGS/NE DNR data (not yet); for now all
-    # "modeled_high" where we have ≥ 5 wells, else "modeled_low".
-    wide["data_quality"] = wide["n_wells"].fillna(0).apply(
-        lambda n: "modeled_high" if n >= 5 else "modeled_low"
-    )
+    # --- 12. Thickness source + data quality ---
+    # `thickness_source` flags where the saturated-thickness value came from so
+    # the frontend can colour by provenance and the narrative (methodology page)
+    # can cite the right upstream source:
+    #   'wells'    — direct well measurement (USGS gwlevels, WIZARD, NGWMN,
+    #                TWDB, NE DNR, or KS bedrock)
+    #   'raster'   — USGS McGuire published HPA rasters (SIR 2012-5177/5291)
+    #   'fallback' — last-resort 30m sentinel (rare after raster fill)
+    #   'none'     — county off the aquifer footprint (thickness left NaN)
+    if raster is not None and len(raster):
+        rast_thick_vals = raster.dropna(subset=["thickness_m"]).set_index("fips")["thickness_m"]
+        # A county's thickness is "raster" if it equals the raster value to
+        # within 1e-6 m AND the county didn't get a prior-step well fill that
+        # happened to match — practically, the raster step only ran on rows
+        # that were NaN before it, so exact equality is sufficient.
+        matches_raster = wide["fips"].map(rast_thick_vals).pipe(
+            lambda s: (s - wide["saturated_thickness_m"]).abs() < 1e-6
+        )
+    else:
+        matches_raster = pd.Series(False, index=wide.index)
+
+    is_off_hpa = wide["hpa_overlap_pct"] == 0
+    is_fallback = wide["saturated_thickness_m"] == 30.0
+    # Well-sourced = has thickness, not raster, not fallback, on HPA
+    wide["thickness_source"] = "wells"
+    wide.loc[matches_raster, "thickness_source"] = "raster"
+    wide.loc[is_fallback, "thickness_source"] = "fallback"
+    wide.loc[is_off_hpa, "thickness_source"] = "none"
+    wide.loc[wide["saturated_thickness_m"].isna(), "thickness_source"] = "none"
+
+    # Data quality (for the UI legend):
+    #   metered/modeled_high → real measurement source (wells or raster) AND enough overlap
+    #   modeled_low         → fallback
+    #   no_data             → off-aquifer or no thickness
+    wide["data_quality"] = "modeled_low"
+    wide.loc[wide["thickness_source"].isin(["wells", "raster"]), "data_quality"] = "modeled_high"
+    wide.loc[wide["thickness_source"] == "none", "data_quality"] = "no_data"
 
     # Drop anything without acres to keep the frame clean.
     wide = wide[wide["irrigated_acres_total"] > 0].reset_index(drop=True)
