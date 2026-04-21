@@ -1,0 +1,89 @@
+{
+  "title": "Nebraska NRD groundwater allocation rules",
+  "source": "Nebraska DNR Groundwater Management Summary 2020 / 2021 (user-curated)",
+  "source_file": "data/raw/Groundwater Management Summary 2020 - groundwater_management_summary_2021.pdf",
+  "curated_by": "raj@2026-04-20",
+  "schema": {
+    "nrd": "NRD name",
+    "base_allocation_in_yr": "Annual per-acre allocation, inches. Null = trigger-based or none.",
+    "allocation_cycle_in": "Cycle total (inches) / years (e.g., 62.5/5 = 62.5 in over 5 yrs).",
+    "start_year": "Year allocations first took effect.",
+    "moratorium": "well-drilling moratorium in effect?",
+    "trading": "Inter-well water trading allowed?",
+    "notes": "Special programs, carryforward caps, compact constraints."
+  },
+  "districts": [
+    {
+      "nrd": "Upper Republican",
+      "base_allocation_in_yr": 12.5,
+      "allocation_cycle_in": "62.5 / 5 yrs",
+      "start_year": 1980,
+      "moratorium": true,
+      "trading": true,
+      "notes": "Carryforward capped at 7.5\" per period. Joint owner of NCORPE streamflow augmentation project. Allocation reduced from 13\" in 2023."
+    },
+    {
+      "nrd": "Middle Republican",
+      "base_allocation_in_yr": 12.0,
+      "allocation_cycle_in": "60.0 / 5 yrs",
+      "start_year": 2004,
+      "moratorium": true,
+      "trading": true,
+      "notes": "Hard cap of 15\" during NE/KS Compact Call years. Max 12\" carryforward. Joint owner of NCORPE."
+    },
+    {
+      "nrd": "Lower Republican",
+      "base_allocation_in_yr": 9.0,
+      "allocation_cycle_in": "45.0 / 5 yrs",
+      "start_year": 2004,
+      "moratorium": true,
+      "trading": true,
+      "notes": "Hard cap of 13\" during Compact Call years. Max 9\" carryforward. Joint owner of NCORPE."
+    },
+    {
+      "nrd": "Tri-Basin",
+      "base_allocation_in_yr": 9.0,
+      "allocation_cycle_in": "27.0 / 3 yrs",
+      "start_year": 2004,
+      "moratorium": true,
+      "trading": true,
+      "notes": "Spans three river basins; strict allocations applied only in the Republican River basin portion to comply with the tri-state compact."
+    },
+    {
+      "nrd": "Little Blue",
+      "base_allocation_in_yr": 13.0,
+      "allocation_cycle_in": "65.0 / 5 yrs",
+      "start_year": 2025,
+      "moratorium": "sub-area",
+      "trading": null,
+      "notes": "Newest allocation in the state. Triggered automatically after two consecutive years of spring groundwater declines. Max 8\" carryover."
+    },
+    {
+      "nrd": "Lower Elkhorn",
+      "base_allocation_in_yr": 14.0,
+      "allocation_cycle_in": "Annual",
+      "start_year": 2026,
+      "moratorium": "sub-area",
+      "trading": null,
+      "notes": "Applies only to designated Quantity Management Subareas. Variable allocations by technology: Gravity 18\", Subsurface Drip (SDI) 13\", Center Pivot 14\"."
+    },
+    {
+      "nrd": "Central Platte",
+      "base_allocation_in_yr": null,
+      "allocation_cycle_in": "Trigger-based",
+      "start_year": null,
+      "moratorium": true,
+      "trading": true,
+      "notes": "Operates a highly active, formalized water banking and trading program. Relies on groundwater decline triggers rather than district-wide hard allocations."
+    },
+    {
+      "nrd": "Upper Big Blue",
+      "base_allocation_in_yr": null,
+      "allocation_cycle_in": "Trigger-based",
+      "start_year": null,
+      "moratorium": "new-acres",
+      "trading": null,
+      "notes": "If water levels drop one foot below the 2016 baseline for two consecutive years, a strict 13\" / 5-year allocation automatically triggers."
+    }
+  ]
+}

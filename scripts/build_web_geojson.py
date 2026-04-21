@@ -96,6 +96,10 @@ def build(tolerance: float) -> Path:
         "thickness_pred_next_m", "decline_source",
         "years_until_uneconomic", "years_until_uneconomic_lo", "years_until_uneconomic_hi",
         "model_id", "coverage_target",
+        # Climate + economics (new 2026-04-21 ingest).
+        "precip_normal_mm_yr", "precip_recent_mm_yr", "precip_anomaly_pct",
+        "electricity_cents_per_kwh", "pumping_cost_usd_per_af",
+        "irr_center_pivot", "irr_flood", "irr_drip", "irr_dryland",
         "pumping_af_yr", "pumping_af_yr_usgs2015", "irrigated_acres_total",
         "acres_corn", "acres_soybeans", "acres_sorghum", "acres_wheat",
         "acres_cotton", "acres_alfalfa",

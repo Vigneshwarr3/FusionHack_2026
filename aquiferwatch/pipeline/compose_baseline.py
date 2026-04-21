@@ -347,15 +347,56 @@ def build() -> pd.DataFrame:
                 total_inf / 1e6, total_usgs / 1e6, total_inf / total_usgs,
             )
 
-    # --- 10. Irrigation method mix: all-center-pivot fallback ---
-    # Real mix requires USDA IWMS application-method subquery — deferred.
-    wide["irr_center_pivot"] = 0.85
-    wide["irr_flood"] = 0.05
-    wide["irr_drip"] = 0.05
-    wide["irr_dryland"] = 0.05
+    # --- 10. Irrigation method mix: IWMS 2018 per-state shares ---
+    # Source: USDA NASS Farm & Ranch Irrigation Survey 2018, Table 28.
+    # NASS gravity rows validated via QuickStats API (see
+    # aquiferwatch/pipeline/iwms_method_mix.py). Non-HPA states default
+    # to the old-style 85/5/5/5 split.
+    iwms = _load_if_exists("iwms_method_mix.parquet")
+    if iwms is not None and len(iwms):
+        iwms_by_state = iwms.set_index("state")
+        wide["irr_center_pivot"] = wide["state"].map(iwms_by_state["center_pivot_share"]).fillna(0.85)
+        wide["irr_flood"] = wide["state"].map(iwms_by_state["flood_share"]).fillna(0.05)
+        wide["irr_drip"] = wide["state"].map(iwms_by_state["drip_share"]).fillna(0.05)
+        wide["irr_dryland"] = wide["state"].map(iwms_by_state["dryland_share"]).fillna(0.05)
+    else:
+        wide["irr_center_pivot"] = 0.85
+        wide["irr_flood"] = 0.05
+        wide["irr_drip"] = 0.05
+        wide["irr_dryland"] = 0.05
 
     # --- 11. Employment per county ---
     wide["employment_fte"] = wide["ag_value_usd"] * (0.021 / 1000.0)
+
+    # --- 11a. Precipitation (NOAA nClimDiv 30-yr normal + recent 5y) ---
+    # Adds `precip_normal_mm_yr`, `precip_recent_mm_yr`, `precip_anomaly_pct`
+    # per county so the drill-down can show a climate sparkline and the
+    # scenario engine can add a recharge-driven modifier downstream.
+    precip = _load_if_exists("noaa_county_precip.parquet")
+    if precip is not None and len(precip):
+        precip["fips"] = precip["fips"].astype(str).str.zfill(5)
+        wide = wide.merge(
+            precip[["fips", "precip_normal_mm_yr", "precip_recent_mm_yr", "precip_anomaly_pct"]],
+            on="fips", how="left",
+        )
+        log.info("  NOAA precip: %d / %d counties joined",
+                 wide["precip_normal_mm_yr"].notna().sum(), len(wide))
+
+    # --- 11b. EIA industrial electricity price → per-county pumping cost ---
+    # `cents_per_kwh` × `kwh_per_af_pumped` / 100 = `pumping_cost_usd_per_af`.
+    # Lets the UI show "electricity bill per acre-foot pumped" alongside the
+    # crop revenue per acre-foot — direct break-even economics.
+    eia = _load_if_exists("eia_state_prices.parquet")
+    if eia is not None and len(eia):
+        eia_by_state = eia.set_index("state")["cents_per_kwh"]
+        wide["electricity_cents_per_kwh"] = wide["state"].map(eia_by_state)
+        wide["pumping_cost_usd_per_af"] = (
+            wide["kwh_per_af_pumped"] * wide["electricity_cents_per_kwh"] / 100.0
+        )
+        log.info("  EIA prices: %d states joined, pumping cost median=$%.2f/AF",
+                 wide["electricity_cents_per_kwh"].notna().sum(),
+                 wide["pumping_cost_usd_per_af"].median(),
+        )
 
     # --- 12. Thickness source + data quality ---
     # `thickness_source` flags where the saturated-thickness value came from so
